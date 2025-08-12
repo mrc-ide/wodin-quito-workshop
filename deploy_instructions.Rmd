@@ -1,0 +1,11 @@
+## dev site 
+  ssh vagrant@wodin-dev.dide.ic.ac.uk
+  cd wodin-epimodels
+  ./update_source infectiousdiseasemodels-2025
+  ./deploy 
+
+## main site
+ssh vagrant@epimodels.dide.ic.ac.uk
+cd wodin-epimodels
+./update_source infectiousdiseasemodels-2025
+./deploy # not always needed

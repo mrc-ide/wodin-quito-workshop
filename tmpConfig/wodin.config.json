@@ -1,0 +1,9 @@
+{
+    "courseTitle": "Introduction to Mathematical Models of the Epidemiology & Control of Infectious Diseases 2025",
+    "savePrefix": "shortcourse-2025",
+    "port": 3000,
+    "appsPath": "apps",
+    "baseUrl": "https://epimodels.dide.ic.ac.uk/shortcourse-2025",
+    "odinApi": "http://odin.api:8001",
+    "redisUrl": "redis://redis:6379"
+}

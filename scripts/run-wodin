@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -ex
+
+# copy config and use local base url
+TMP_CONFIG=$PWD/tmpConfig
+rm -rf $TMP_CONFIG
+mkdir $TMP_CONFIG
+cp -r apps defaultCode files help index.html wodin.config.json $TMP_CONFIG
+sed -i 's+https://epimodels.dide.ic.ac.uk/shortcourse-2025+http://localhost:3000+g' $TMP_CONFIG/wodin.config.json
+
+WODIN_BRANCH=main
+ODIN_API_BRANCH=main
+
+docker network create wodin-nw
+
+ODIN_API_TAG=mrcide/odin.api:$ODIN_API_BRANCH
+docker pull $ODIN_API_TAG
+docker run -d --name odin.api --rm --network=wodin-nw $ODIN_API_TAG
+
+docker run -d --name redis --network=wodin-nw redis:6
+
+WODIN_TAG=mrcide/wodin:$WODIN_BRANCH
+docker pull $WODIN_TAG
+docker run -d --name wodin -p 3000:3000 --network=wodin-nw -v $TMP_CONFIG:/config:ro $WODIN_TAG /config
