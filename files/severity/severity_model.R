@@ -1,4 +1,4 @@
-dt <- 0.01              # Step size, in units of time
+dt <- 0.25              # Step size, in units of time
 beta <- user(0.8)       # Transmission rate
 p_sev <- user(0.3)      # Probability of severe disease if infected
 sigma_Is <- user(0.071) # Recovery rate from severe disease

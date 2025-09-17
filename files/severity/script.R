@@ -4,9 +4,10 @@ pacman::p_load(rio, tidyverse, odin)
 sir <- odin::odin("files/severity/severity_model.R")
 
 model <- sir$new()
-t <- seq(0, 365, 1)
+t <- seq(0, 400, 1)
 
 y <- as.data.frame(model$run(t)) %>% 
+  mutate(step = step / 4) %>% 
   pivot_longer(!step)
 
 ggplot(y, aes(step, value, col = name)) +
