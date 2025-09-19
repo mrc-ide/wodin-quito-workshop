@@ -19,11 +19,15 @@ pars <- list(
   I_init = 10       # Initial infected
 )
 
-y <- run_model(sir, pars, n_days = 40)
+y <- run_model(sir, pars, n_days = 100)
 
-plot_timeseries(y, index)
+plot_timeseries(y, index, data = df)
 
 plot_timeseries(y, index, "hosp_incidence") /
   plot_timeseries(y, index, "deaths_incidence")
 
+
+df <- data.frame(data = round(rowMeans(t(y[6, , ])))) %>% 
+  mutate(day = row_number() / 4, .before = data) %>% 
+  filter(day %in% seq(1, 100))
 

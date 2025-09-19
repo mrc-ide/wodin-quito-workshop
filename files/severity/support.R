@@ -23,7 +23,7 @@ summarise_state <- function(y) {
 }
 
 
-plot_timeseries <- function(y, index, what = NULL) {
+plot_timeseries <- function(y, index, what = NULL, data = NULL) {
   
   stopifnot(what %in% names(index))
   
@@ -50,14 +50,21 @@ plot_timeseries <- function(y, index, what = NULL) {
     
     ret <- rbind(hosp, deaths)
     
-    p <- ggplot(ret, aes(x = day)) +
+    data %>% 
+      right_join(ret) %>% 
+      select(day, data) %>% 
+      head()
+      left_join(data)
+    
+    
+    ggplot(ret, aes(x = day)) +
       geom_line(aes(y = mean, col = type)) +
       geom_ribbon(aes(ymin = lb, ymax = ub, fill = type), 
                   alpha = 0.2, show.legend = FALSE) +
       labs(x = "Time", y = "Incidence") +
       scale_color_manual(breaks = breaks, values = values) +
       scale_fill_manual(breaks = breaks, values = values) +
-      annotate("text", label = "Outbreak detected", x = 24, y = 900)
+      annotate("text", label = "Outbreak detected", x = 30, y = 2500)
     
     
   } else {
