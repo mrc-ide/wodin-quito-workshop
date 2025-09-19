@@ -29,7 +29,7 @@ FOI <- beta * (Is + Ia) / N
 # Determine new infections
 new_infections <- rbinom(S, FOI * dt)
 new_Is <- new_infections * p_sev
-new_Ia <- new_infections - new_Is
+new_Ia <- new_infections * (1 - p_sev)
 
 
 # Two types of events for Is, either death or recovery (competing hazards)
@@ -45,5 +45,5 @@ n_recoveries_Ia <- rbinom(Ia, sigma_Ia * dt)
 update(S) <- S - new_infections
 update(Is) <- Is + new_Is - n_recoveries_Is - n_deaths_Is
 update(Ia) <- Ia + new_Ia - n_recoveries_Ia
-update(R) <- R + n_recoveries_Is
+update(R) <- R + n_recoveries_Is + n_recoveries_Ia
 update(D) <- D + n_deaths_Is
