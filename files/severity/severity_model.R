@@ -1,9 +1,9 @@
 dt <- 0.25              # Step size, in units of time
 beta <- user(0.8)       # Transmission rate
-p_sev <- user(0.3)      # Probability of severe disease if infected
+p_sev <- user(0.1)      # Probability of severe disease if infected
 sigma_Is <- user(0.048) # Recovery rate from severe disease
 sigma_Ia <- user(0.141) # Recovery rate from mild disease
-mu <- user(0.048)       # Mortality rate from severe disease
+mu <- user(0.024)       # Mortality rate from severe disease
 N <- user(10000)        # Total population
 I_init <- user(10)      # Initial infected
 
@@ -49,8 +49,12 @@ update(R) <- R + n_recoveries_Is + n_recoveries_Ia
 update(D) <- D + n_deaths_Is
 
 # other outputs of interest
+initial(inf_incidence) <- 0
 initial(hosp_incidence) <- 0
 initial(deaths_incidence) <- 0
+initial(h_recov_incidence) <- 0
 
+update(inf_incidence) <- new_Ia + new_Is
 update(hosp_incidence) <- new_Is
 update(deaths_incidence) <- n_deaths_Is
+update(h_recov_incidence) <- n_recoveries_Is
