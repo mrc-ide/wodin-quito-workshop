@@ -10,11 +10,12 @@ apply_theme <- function(p, xlim = NA, ylim = NA) {
 
 
 plot_data <- function(data, all_data = FALSE) {
-  
-  xlim <- ifelse(all_data, NA, 30)
+
+  xlim <- ifelse(all_data, max(data$day), 30)
   
   data <- data %>% 
     pivot_longer(!day) %>% 
+    filter(day <= xlim) %>% 
     mutate(name = str_to_title(name))
   
   ylim <- max(data$value) * 1.10
@@ -117,7 +118,7 @@ plot_timeseries <- function(res, what = NULL, data = NULL) {
       labs(x = "Time", y = "Incidence") +
       scale_color_manual(breaks = breaks, values = values) +
       scale_fill_manual(breaks = breaks, values = values) +
-      annotate("text", label = "Outbreak detected", x = 20, y = 2500)
+      annotate("text", label = "Outbreak detected", x = 20, y = 1000)
     
     
   } else {
@@ -142,7 +143,7 @@ plot_timeseries <- function(res, what = NULL, data = NULL) {
   
   p +
     geom_vline(xintercept = 20, linetype = 2, col = "red") +
-    theme(legend.position = c(0.15, 0.85),
+    theme(legend.position = c(0.85, 0.85),
           legend.title = element_blank())
 }
 
@@ -169,4 +170,117 @@ generate_data <- function(res) {
   rio::export(df_day30, "files/severity/incidence_data_day30.csv")
   
   rio::export(df, "files/severity/incidence_data.csv")
+}
+
+
+generate_linelist <- function(data) {
+  
+  n_hosp <- sum(data$hospitalisations)
+  n_death <- sum(data$deaths)
+  n_recov <- sum(data$recoveries)
+  n_open <- n_hosp - n_recov - n_death
+  
+  delay_recov <- rexp(n_recov, 0.048)
+  delay_death <- rexp(n_death, 0.024)
+  
+  sim_linelist <- 
+    data.frame(
+      id = paste0("id_", sample(1:n_hosp, replace = FALSE)),
+      outcome = c(rep("death", n_death), 
+                  rep("recovery", n_recov),
+                  rep(NA_real_, n_hosp - n_recov - n_death))
+    ) %>% 
+    mutate(
+      delay_recovery = c(rep(NA_real_, n_death), 
+                         delay_recov,
+                         rep(NA_real_, n_open)),
+      delay_death = c(delay_death,
+                      rep(NA_real_, n_open + n_recov))
+    )
+  
+  rio::export(sim_linelist, "files/severity_simulated_linelist.csv")
+}
+
+
+generate_linelist_day30 <- function(...) {
+  
+  data <- rio::import("files/severity/incidence_data_day30.csv")
+  df <- rio::import("files/severity/simulated_linelist.csv")
+  
+  n_hosp <- sum(data$hospitalisations)
+  n_death <- sum(data$deaths)
+  n_recov <- sum(data$recoveries)
+  n_open <- n_hosp - n_recov - n_death
+  
+  
+  x <- df[df$outcome == "recovery" & df$delay_recovery <= 30, ]
+  x1 <- x[1:n_recov, ] %>% 
+    rbind(.,
+          (x[(n_recov + 1):(n_recov + floor(n_open / 2)), ] %>% 
+             mutate(
+               outcome = "",
+               delay_recovery = NA_real_))
+    )
+  
+  y <- df[df$outcome == "death" & df$delay_death <= 30, ]
+  y1 <- y[1:n_death, ] %>% 
+    rbind(.,
+          (y[(n_death + 1):(n_death + ceiling(n_open / 2)), ] %>% 
+             mutate(
+               outcome = "",
+               delay_death = NA_real_))
+    )
+  
+  
+  out <-  rbind(x1, y1)
+  
+  rio::export(out, "files/severity/simulated_linelist_day30.csv")
+}
+
+
+get_km_df <- function(linelist, xlim = 350){
+  
+  # get a vector of delays for closed recoveries and deaths
+  closed_recovery <- linelist %>% 
+    filter(!is.na(delay_recovery)) %>% 
+    pull(delay_recovery)
+  
+  closed_death <- linelist %>% 
+    filter(!is.na(delay_death)) %>% 
+    pull(delay_death)
+  
+  
+  n <- nrow(linelist)
+  
+  data.frame(day = 0:xlim) %>%
+    mutate(
+      n_recovered = 
+        mapply(function(x) sum(closed_recovery <= x), day),
+      n_dead = 
+        mapply(function(x) sum(closed_death <= x), day),
+      prop1 = 1 - n_recovered / n,
+      prop2 = n_dead / n
+    )
+}
+
+
+plot_km <- function(df_km, true_cfr = 0.3331771) {
+  
+  df_km %>% 
+    select(day, prop1, prop2) %>% 
+    pivot_longer(cols = -day) %>% 
+    ggplot() + 
+    geom_step(aes(x = day, y = value, col = name)) +
+    geom_hline(yintercept = true_cfr, linetype = 2, col = "red") +
+    labs(x = "Time from admission to outcome", y = "HFR") +
+    scale_y_continuous(limits = c(0, 1), 
+                       breaks = seq(0, 1, 0.1),
+                       expand = c(0, 0)) +
+    scale_color_manual(values = c("chartreuse3", "purple"),
+                       name = "", 
+                       labels = c("Survivorship to\nrecovery", 
+                                  "\nOne minus\nsurvivorship to\ndeath")) +
+    theme_minimal() +
+    theme(axis.line = element_line(),
+          legend.position = c(0.85, 0.5))
 }

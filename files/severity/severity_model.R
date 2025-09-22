@@ -1,23 +1,21 @@
 dt <- 0.25              # Step size, in units of time
-beta <- user(0.8)       # Transmission rate
+beta <- user(0.38)      # Transmission rate
 p_sev <- user(0.1)      # Probability of severe disease if infected
 sigma_Is <- user(0.048) # Recovery rate from severe disease
 sigma_Ia <- user(0.141) # Recovery rate from mild disease
 mu <- user(0.024)       # Mortality rate from severe disease
-N <- user(10000)        # Total population
+N <- user(1e6)          # Total population
 I_init <- user(10)      # Initial infected
 
 
 # Derive initial numbers
 S_init <- N - I_init
-Is_init <- I_init * p_sev
-Ia_init <- I_init - Is_init
 
 
 # Stochastic solution
 initial(S) <- S_init
-initial(Is) <- Is_init
-initial(Ia) <- Ia_init 
+initial(Is) <- 0
+initial(Ia) <- I_init 
 initial(R) <- 0
 initial(D) <- 0
 
