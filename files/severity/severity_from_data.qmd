@@ -1,0 +1,161 @@
+---
+title: "Estimating severity from data"
+author: "Pablo N Perez-Guzman and Robert Verity"
+format: html
+editor: visual
+---
+
+## Hierarchy of outcomes
+
+As you saw from the slides, it is useful to imagine a *hierarchy of outcomes* when thinking about disease severity (**Figure 1**). At the base of this hierarchy are all (*true*) infections, some of which may lead to asymptomatic episodes that remain undetectable in clinical data. Above this, we have mild cases that are detectable via active surveillance (i.e., going out and measuring people), but are likely to be under-ascertained by passive surveillance (i.e., observing cases presenting at clinics) because they are mild enough that people tend to forgo healthcare. Above this, we have severe cases that warrant intensive medical intervention. In highly resourced settings we can think of these as cases that present to hospitals, but in resource-poor settings many of these severe cases may be missing from clinical data. Finally, at the top of the hierarchy, we have deaths. These tend to occur in clinical settings and tend to be the best recorded of all outcomes. However, in resource-poor settings there may be issues with vital registration, along with large numbers of community deaths that make hospital deaths a substantial underestimate of total deaths.
+
+::: {style="text-align: center;"}
+![<b>Figure 1:</b> The hierarchy of outcomes](images/pyramid.png){width="70%" height="70%"}
+:::
+
+We can quantify severity by comparing any one stage of this hierarchy against another. For example, the case fatality ratio (CFR) is the proportion of cases that result in death. Likewise, the infection fatality ratio (IFR) is the proportion of infections that result in death. We can navigate this hierarchy by multiplying values together, for example:
+
+<br>
+
+$$
+\begin{array}{c}
+\text{Infection} \\
+\text{fatality ratio} \\
+\text{(IFR)}
+\end{array}
+\hspace{5mm} = \hspace{5mm}
+\begin{array}{c}
+\text{Infection} \\
+\text{hospitalisation ratio} \\
+\text{(IHR)}
+\end{array}
+\hspace{5mm} \times \hspace{5mm}
+\begin{array}{c}
+\text{Hospitalisation} \\
+\text{fatality ratio} \\
+\text{(HFR)}
+\end{array}
+$$ Breaking the problem down into chunks like this allows us to use different sources of information to explore different parts of hierarchy before linking them together in an overall picture of the disease.
+
+## Simple (naive) severity estimates
+
+Let's focus on estimating the **HFR** for this part of the practical. Following the logic of the hierarchy of outcomes above, a naive way to define the HFR would be
+
+$$
+\begin{align}
+\mathrm{HFR} = \frac{\text{Total deaths}}{\text{Total hospitalisations}}
+\end{align}
+$$
+
+::: {.callout-note icon="false"}
+## Question 1: *What type of data would you need to have from a given outbreak, in order to make this calculation? What do you need to assume about those data, so that your HFR calculation is, indeed, an accurate severity estimate?*
+
+There are several types of outbreak surveillance data that can be used to calculate severity. Two of the most common ones are aggregated time-series data and linelist data.
+
+Aggregated time-series data is basically a count of severity outcomes (hospitalisations and deaths, in our example) per unit-time. The reporting unit-time can be days, weeks or months (even years could make sense for chronic diseases), and the counts per unit-time can in turn correspond to incident (e.g., daily new cases) or cumulative outcomes up to that point in time.
+
+Linelist data, on the other hand, is patient-level information on disease outcomes of interest. It will usually consist of a data set where each row corresponds to an individual patient, and dates (or number of days since the start of the outbreak) at which outcomes of interest occur, sometimes alongside other relevant clinical information.
+
+This simple HFR definition assumes that 1) all deaths occur in hospital settings (i.e., all those infected who eventually die receive in-hospital care); and b) by this token, that all severe cases become hospitalisations that will either recover or die.
+:::
+
+Run the code in the next box to load our first example of outbreak data that we will use to calculate HFR.
+
+```{r}
+
+# load necessary packages and support functions
+source("support.R")
+pacman::p_load(rio,            # import/export files
+               tidyverse,      # data cleaning, wrangling, plotting, etc. tools
+               patchwork,      # multi-panel plotting tools
+               matrixStats,    # stats on matrix object tools
+               epitools,       # epi analysis tools
+               kableExtra,     # tools to visualise data tables
+               htmltools)      # tools for html-style visualisations
+
+# read in raw data
+data <- rio::import("incidence_data.csv")
+
+# visualise data
+data |>
+  kbl() |>
+  kable_styling(bootstrap_options = "striped", 
+                full_width = F, position = "center") |>
+  scroll_box(width = "900px", height = "200px")
+
+```
+
+::: {.callout-note icon="false"}
+## Question 2: *What type of data is this and how would you then calculate the "true" HFR for this outbreak?*
+
+This is a daily time-series of incident (new) infections, hospitalisations, recoveries and deaths. Assuming these indeed represent the *true* number of all outcomes observed per day of the outbreak (i.e., perfect surveillance system), we can divide the cumulative (total) number of deaths by cumulative hospitalisations by the end of the outbreak.
+:::
+
+Run the code below and check your intuition in the previous answer.
+
+```{r}
+basic_hfr <- data %>% 
+  select(day, deaths, hospitalisations) %>% 
+  mutate(deaths = cumsum(deaths),
+         hospitalisations = cumsum(hospitalisations)) %>% 
+  mutate(HFR = deaths / hospitalisations) 
+
+true_hfr <- tail(basic_hfr$HFR, 1)
+
+plot(HFR ~ day, basic_hfr, type = "b", bty = "n", ylim = c(0, 0.5))
+abline(h = true_hfr, col = "red", lty = 3)
+```
+
+::: {.callout-note icon="false"}
+## Question 3: *Describe what you observe during this outbreak. What is happening with the HFR estimation during the early, middle and late stages of the outbreak?*
+
+The outbreak has a total duration of 150 days. In the early and mid stages, there are several active (open) infections and hospitalisations for which we do not yet know the outcome. Our simple HFR calculation at these points is severely underestimating the *true* HFR, which we can only know until the outbreak in finished (or at least until the very late stages, when enough cumulative hospitalisations and deaths have accrued).
+:::
+
+As we discussed during the slides, in a real-time outbreak situation data is often incomplete and there are reporting delays. Let's pretend we are now in the early stages of this outbreak.
+
+In this scenario, the outbreak was detected 20 days after the first true infections occurred and, since, we have received data every 5 days and we are on day 30.
+
+A simple way for gauging uncertainty in binomially-distributed observations, such as our simple HFR estimate, would be to calculate [binomial confidence intervals](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval). Run the code below and compare what our simple estimator is telling us at each of the three data survey points we have so far (i.e., days 20, 25 and 30 of the outbreak); we will use a function built-in the package `epitools` to help with the calculation.
+
+```{r}
+data <- rio::import("incidence_data_day30.csv")
+
+n_hosp <- sum(data$hospitalisations)
+n_death <- sum(data$deaths)
+n_recov <- sum(data$recoveries)
+n_open <- n_hosp - n_recov - n_death
+
+
+basic_hfr <- data %>% 
+  select(day, deaths, hospitalisations) %>% 
+  mutate(deaths = cumsum(deaths),
+         hospitalisations = cumsum(hospitalisations))
+
+survey_times <- seq(20, 30, 5)
+
+hfr_conf <- basic_hfr %>% 
+  select(day, deaths, hospitalisations) %>% 
+  filter(day %in% survey_times) %>% 
+  mutate(epitools::binom.exact(x = deaths, n = hospitalisations)) %>% 
+  mutate(mean = round(proportion, 3),
+         lb = round(lower, 3),
+         ub = round(upper, 3)) %>% 
+  select(day, mean, lb, ub)
+
+
+ggplot(hfr_conf) +
+  geom_pointrange(aes(x = day, y = mean, ymin = lb, ymax = ub)) +
+  geom_hline(yintercept = true_cfr, col = "red", linetype = 2) +
+  annotate("text", label = "True HFR", x = 25, y = 0.35) +
+  labs(x = "Time", y = "HFR") +
+  scale_y_continuous(limits = c(0, 0.5), expand = c(0,0)) +
+  theme_minimal() +
+  theme(axis.line = element_line())
+```
+
+::: {.callout-note icon="false"}
+## Question 4: *Describe what you observe.*
+
+Once again, we see that the simple HFR calculation underestimates the *true* HFR, which for the sake of the example we are plotting here from the final outbreak data. This cannot be known, though, at the start of an outbreak. The calculation of binomial confidence intervals is not doing a very good job here to add any more useful information; that is, the uncertainty around the mean estimate does not capture the true HFR either.
+:::

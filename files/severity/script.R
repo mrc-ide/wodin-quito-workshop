@@ -8,7 +8,8 @@ pacman::p_load(rio,            # import/export files
                mcstate)        # fitting tools for odin models
 
 
-# Basic estimator with all data -------------------------------------------
+# Basic estimator with all data -------------------------
+------------------
 
 data <- rio::import("files/severity/incidence_data.csv")
 
