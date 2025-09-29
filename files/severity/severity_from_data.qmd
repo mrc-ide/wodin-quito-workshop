@@ -37,22 +37,20 @@ $$
 \end{array}
 $$ Breaking the problem down into chunks like this allows us to use different sources of information to explore different parts of hierarchy before linking them together in an overall picture of the disease.
 
-## Simple (naive) severity estimates
+# Simple (crude) severity estimates
 
-Let's focus on estimating the **HFR** for this part of the practical. Following the logic of the hierarchy of outcomes above, a naive way to define the HFR would be
+The simplest way to do a crude severity estimate $e(s)$ is to take the cumulative number of severe outcomes up to the present day $s$ and divide by cumulative cases. For example, to calculate the HFR we would do:
 
-$$
-\begin{align}
-\mathrm{HFR} = \frac{\text{Total deaths}}{\text{Total hospitalisations}}
-\end{align}
-$$
+$$ HFR(s) = \frac{D(s)}{H(s)} $$
+
+where $D(s)$ and $H(s)$ denote the cumulative deaths and hospitalisations up to time $s$.
 
 ::: {.callout-note icon="false"}
 ## Question 1: *What type of data would you need to have from a given outbreak, in order to make this calculation? What do you need to assume about those data, so that your HFR calculation is, indeed, an accurate severity estimate?*
 
-There are several types of outbreak surveillance data that can be used to calculate severity. Two of the most common ones are aggregated time-series data and linelist data.
+There are several types of outbreak surveillance data that can be used to calculate severity. For this extremely simple calculation we do not anything other than the cumulative numbers up to the present day.
 
-Aggregated time-series data is basically a count of severity outcomes (hospitalisations and deaths, in our example) per unit-time. The reporting unit-time can be days, weeks or months (even years could make sense for chronic diseases), and the counts per unit-time can in turn correspond to incident (e.g., daily new cases) or cumulative outcomes up to that point in time.
+That said, two common outbreak surveillance data streams are aggregated time-series data and linelist data. Aggregated time-series data is basically a count of severity outcomes (hospitalisations and deaths, in our example) per unit-time. The reporting unit-time can be days, weeks or months (even years could make sense for chronic diseases), and the counts per unit-time can in turn correspond to incident (e.g., daily new cases) or cumulative outcomes up to that point in time.
 
 Linelist data, on the other hand, is patient-level information on disease outcomes of interest. It will usually consist of a data set where each row corresponds to an individual patient, and dates (or number of days since the start of the outbreak) at which outcomes of interest occur, sometimes alongside other relevant clinical information.
 
@@ -62,6 +60,8 @@ This simple HFR definition assumes that 1) all deaths occur in hospital settings
 Run the code in the next box to load our first example of outbreak data that we will use to calculate HFR.
 
 ```{r}
+#| message: false
+#| warning: false
 
 # load necessary packages and support functions
 source("support.R")
@@ -82,7 +82,6 @@ data |>
   kable_styling(bootstrap_options = "striped", 
                 full_width = F, position = "center") |>
   scroll_box(width = "900px", height = "200px")
-
 ```
 
 ::: {.callout-note icon="false"}
@@ -94,6 +93,8 @@ This is a daily time-series of incident (new) infections, hospitalisations, reco
 Run the code below and check your intuition in the previous answer.
 
 ```{r}
+#| message: false
+#| warning: false
 basic_hfr <- data %>% 
   select(day, deaths, hospitalisations) %>% 
   mutate(deaths = cumsum(deaths),
@@ -102,8 +103,14 @@ basic_hfr <- data %>%
 
 true_hfr <- tail(basic_hfr$HFR, 1)
 
-plot(HFR ~ day, basic_hfr, type = "b", bty = "n", ylim = c(0, 0.5))
-abline(h = true_hfr, col = "red", lty = 3)
+ggplot(basic_hfr, aes(day, HFR)) +
+  geom_point() +
+  geom_hline(yintercept = true_hfr, col = "red", linetype = 2) +
+  annotate("text", label = "True HFR", x = 25, y = 0.35) +
+  labs(x = "Time", y = "HFR") +
+  scale_y_continuous(limits = c(0, 0.5), expand = c(0,0)) +
+  theme_minimal() +
+  theme(axis.line = element_line())
 ```
 
 ::: {.callout-note icon="false"}
@@ -119,6 +126,8 @@ In this scenario, the outbreak was detected 20 days after the first true infecti
 A simple way for gauging uncertainty in binomially-distributed observations, such as our simple HFR estimate, would be to calculate [binomial confidence intervals](https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval). Run the code below and compare what our simple estimator is telling us at each of the three data survey points we have so far (i.e., days 20, 25 and 30 of the outbreak); we will use a function built-in the package `epitools` to help with the calculation.
 
 ```{r}
+#| message: false
+#| warning: false
 data <- rio::import("incidence_data_day30.csv")
 
 n_hosp <- sum(data$hospitalisations)
@@ -146,7 +155,7 @@ hfr_conf <- basic_hfr %>%
 
 ggplot(hfr_conf) +
   geom_pointrange(aes(x = day, y = mean, ymin = lb, ymax = ub)) +
-  geom_hline(yintercept = true_cfr, col = "red", linetype = 2) +
+  geom_hline(yintercept = true_hfr, col = "red", linetype = 2) +
   annotate("text", label = "True HFR", x = 25, y = 0.35) +
   labs(x = "Time", y = "HFR") +
   scale_y_continuous(limits = c(0, 0.5), expand = c(0,0)) +
@@ -157,5 +166,417 @@ ggplot(hfr_conf) +
 ::: {.callout-note icon="false"}
 ## Question 4: *Describe what you observe.*
 
-Once again, we see that the simple HFR calculation underestimates the *true* HFR, which for the sake of the example we are plotting here from the final outbreak data. This cannot be known, though, at the start of an outbreak. The calculation of binomial confidence intervals is not doing a very good job here to add any more useful information; that is, the uncertainty around the mean estimate does not capture the true HFR either.
+Once again, we see that the simple HFR calculation underestimates the *true* HFR, which for the sake of the example we are plotting here from the final outbreak data. This cannot be known at the start of an outbreak, however, and whilst the calculation of a binomial confidence interval adds some information on the data available to make our simple calculation, it is does not do a good job at capturing the true HFR.
 :::
+
+Let's then look at another correction we can apply when all possible outcomes of a disease severity pathway are know. In our example of an outbreak of some disease causing acute illness, hospitalised patients can either recover or die. So, another way of calculating $HFR(s)$ could be
+
+$$ HFR(s) = \frac{D(s)}{D(s) + R(s)}, $$
+
+where $R(s)$ represents the cumulative number of hospitalised patients who have recovered up to time point $s$.
+
+::: {.callout-note icon="false"}
+## Question 5: *How do you think this new calculation will vary compared to the previous one where we divided D(s) by H(s))?*
+
+The problems with the previous estimator were caused by cases being counted before they had transitioned into deaths. We can avoid this by only counting "closed" cases, i.e., those for which we know the final outcome. This is only possible if we have a measure of the total number of recoveries in the population, which may not always be true.
+:::
+
+Run the code below and check if your intuition was correct.
+
+```{r}
+#| message: false
+#| warning: false
+
+closed_hfr <- data %>% 
+  select(day, deaths, hospitalisations, recoveries) %>% 
+  filter(day %in% survey_times) %>% 
+  mutate(deaths = cumsum(deaths),
+         hospitalisations = cumsum(hospitalisations),
+         recoveries = cumsum(recoveries)) %>% 
+  mutate(epitools::binom.exact(x = deaths, 
+                               n = recoveries + deaths)) %>% 
+  mutate(mean = round(proportion, 3),
+         lb = round(lower, 3),
+         ub = round(upper, 3)) %>% 
+  select(day, mean, lb, ub)
+
+
+compare <- closed_hfr %>% 
+  mutate(type = "Deaths / (Deaths + Recoveries)") %>% 
+  rbind(., 
+        hfr_conf %>% 
+          mutate(type = "Deaths / Hospitalisations"))
+
+
+ggplot(compare) +
+  geom_pointrange(aes(x = day, y = mean, ymin = lb, ymax = ub, col = type)) +
+  geom_hline(yintercept = true_hfr, col = "red", linetype = 2) +
+  labs(x = "Time", y = "HFR") +
+  scale_y_continuous(limits = c(0, 1), expand = c(0,0)) +
+  theme_minimal() +
+  theme(axis.line = element_line(),
+        legend.position = c(0.7, 0.85),
+        legend.title = element_blank())
+```
+
+::: {.callout-note icon="false"}
+## Question 6: *What do you observe?*
+
+The new estimate appears to be less biased, but has much greater uncertainty. This is because we are only making use of information in hospitalisations that have completed their journey to death or recovery, which in the early stages of an outbreak will be a small minority of cases.
+
+There are also additiona limitations of this approach that are worth noting. For one, if the average time to death is very different from the average time to recovery then estimates will be biased. It may also be difficult to obtain unbiased estimates of the actual number of recoveries as surveillance tends to be biased towards better recording of the more severe outcomes.
+:::
+
+# Accounting for delays
+
+The simple estimates we have calculated so far demonstrate how we can make use of even minimal information, like aggregate numbers, to gauge severity. In some settings, that might be all we have. However, as we have seen, these estimates could be biased and unreliable, particularly during the early stages of an epidemic when most deaths have yet to occur.
+
+Other more powerful methods that make use of open cases and explicitly deal with delays to outcomes are needed to avoid such biases. For this, let's look at the other type of data we mentioned, linelist data.
+
+Run the code below to see some simulated linelist from our outbreak:
+
+```{r}
+linelist <- rio::import("simulated_linelist_day30.csv")
+head(arrange(linelist, id), 20)
+
+
+```
+
+As you can see, each row represents an individual with a unique identifying number, their outcome and the delay (days) between hospitalisation and recovery or death. However, for most of the 508 hospitalised cases so far, the outcome is not yet known!
+
+Run the code below to find out more about the number of hospitalised cases for which we have information on their outcomes and time to recovery or death.
+
+```{r}
+#| message: false
+#| warning: false
+
+n_recov <- sum(linelist$outcome == "recovery")
+n_death <- sum(linelist$outcome == "death")
+n_open <- nrow(linelist) - n_recov - n_death
+
+delay_recov <- mean(linelist$delay_recovery, na.rm = TRUE)
+delay_death <- mean(linelist$delay_death, na.rm = TRUE)
+
+
+(ggplot(linelist) +
+    geom_histogram(aes(delay_recovery)) +
+    geom_vline(xintercept = delay_recov, linetype = 2, col = "red") +
+    theme_minimal() +
+    labs(x = "Delay to recovery", y = "n",
+         title = paste("N =", n_recov, ", out of", nrow(linelist)))) +
+  
+  (ggplot(linelist) +
+     geom_histogram(aes(delay_death)) +
+     geom_vline(xintercept = delay_death, linetype = 2, col = "red") +
+     theme_minimal() +
+     labs(x = "Delay to death", y = "n",
+          title = paste("N =", n_death, ", out of", nrow(linelist))
+          ))
+
+```
+
+::: {.callout-note icon="false"}
+## Question 7: What do you observe?
+
+These distributions are quite noisy, especially deaths given that there have been relatively few "closed" hospitalisations to date. However, even with this limited data we can get a picture of the overall mean and spread. We also get a picture of the proportion of closed hospitalised cases that have resulted in death versus recovery.
+
+The time from hospitalisation to recovery is quite variable, ranging from 0 to 28 days, with a mean around 12 days post-hospitalisation. Although there are fewer deaths, the observed time from hospitalisation to death ranged from 1 to 29 days, with a mean of 16 days post-hospitalisations.
+:::
+
+In our simulated data up to day 30 of the outbreak, 391 hospitalisations remain open. Estimates relying solely on closed cases may be biased. By dealing with censoring we can make use of the additional information from open cases as well - potentially leading to more accurate estimates of key parameters like the HFR. Two methods for doing this include the use of **parametric mixture models**, which we will not discuss here, and the **Kaplan-Meier method** which we will!
+
+Kaplan-Meier methods provide a **non-parametric way to account for censoring**. The full approach is described [here](https://doi.org/10.1093/aje/kwi230), but in short, we can graphically represent the number of cases that result in death or recovery using a Kaplan-Meier curve:
+
+```{r}
+#| message: false
+#| warning: false
+# get a vector of delays for closed recoveries and deaths
+closed_recovery <- linelist %>% 
+  filter(!is.na(delay_recovery)) %>% 
+  pull(delay_recovery)
+
+closed_death <- linelist %>% 
+  filter(!is.na(delay_death)) %>% 
+  pull(delay_death)
+
+n <- nrow(linelist)
+
+
+# calculate KM curve to recovery or death
+df_km <- data.frame(day = 0:350) %>%
+  mutate(
+    n_recovered = 
+      mapply(function(x) sum(closed_recovery <= x), day),
+    n_dead = 
+      mapply(function(x) sum(closed_death <= x), day),
+    prop1 = 1 - n_recovered / n,
+    prop2 = n_dead / n
+  )
+
+# plot KM curve
+df_km %>% 
+  select(day, prop1, prop2) %>% 
+  pivot_longer(cols = -day) %>% 
+  ggplot() + 
+  geom_step(aes(x = day, y = value, col = name)) +
+  labs(x = "Time from admission to outcome", y = "") +
+  scale_y_continuous(limits = c(0, 1), 
+                     breaks = seq(0, 1, 0.1),
+                     expand = c(0, 0)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 30)) +
+  scale_color_manual(values = c("chartreuse3", "purple"),
+                     name = "", 
+                     labels = c("Survivorship to\nrecovery", 
+                                "\nOne minus\nsurvivorship to\ndeath")) +
+  theme_minimal() +
+  theme(axis.line = element_line(),
+        legend.position = c(0.85, 0.5))
+```
+
+::: {.callout-note icon="false"}
+## Question 8: What does the gap between the lines represent? Should we have more data, do you think the lines would eventually intersect and, if so, what would the intersection represent?
+
+The vertical gap between the lines indicates the proportion of cases without a recorded outcome. Once the epidemic is over and all cases have reached an outcome, the two lines will intersect. The point of intersection will be an unbiased estimate of the HFR. While the epidemic is ongoing, our estimate of the HFR must lie between these two lines. We can arrive at a point estimate by assuming that the relative probabilities of death versus recovery among open cases are the same as those observed in closed cases up to the time of the analysis.
+
+There is currently no known R package for performing this analysis, so we will not show an illustrative example here, but the approach is implemented in the [STATA package casefat](https://econpapers.repec.org/scripts/search.pf?ft=casefat).
+:::
+
+Line lists are extremely valuable when dealing with an emerging threat. They provide rich information at the individual level and can be used to account for right-censoring, leading to unbiased estimates of fatality rates and other proportions. However, we tend only to have line lists from passive surveillance, and so they tend to concentrate on the more severe end of the clinical spectrum.
+
+Let's see what we can learn from more aggregate population-level time series data and how we can explicitly account for delays and censoring. We will once again use our daily incidence data, however we will no use the entire time series. One important factor for this analysis is that we must have uninterrupted time series data, i.e. we cannot have any dates with missing data. If we do have missing data, then we should first impute those values before carrying out this analysis.
+
+Run the code below to plot the entire time series of hospitalisations and deaths:
+
+```{r}
+#| message: false
+#| warning: false
+
+ts_data <- rio::import("incidence_data.csv") %>% 
+  select(day, hospitalisations, deaths)
+
+plot_data(ts_data, all_data = TRUE)
+
+```
+
+Looking at the incidence data, we can see a clear lag between the hospitalisations and deaths curve. The `cfr` package in R takes this lag into account when estimating the CFR. It does so by **estimating the number of cases that are still open** based on the incidence data and an **assumed delay distribution between cases and deaths**. It then estimates the CFR based on the estimated number of closed cases, which avoids some of the biases we saw earlier in our simple (crude) calculations.
+
+Let's start with a delay distribution representing the probability that a hospitalised case dies at each time interval after symptom onset. In our example, we will assume a **parametric** form for this distribution - a [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution). When doing this in a real-time outbreak response, we may not always have access to linelist data to estimate the **mean** and **standard deviation** of our gamma distribution, so we may have to make assumptions (e.g., based on knowledge from previous/similar outbreaks). Here, we will get these parameters from our data.
+
+Run the code below to estimate a mean and standard deviation for our parametric model of the probability of death over time, and plot the resulting distribution:
+
+```{r}
+#| message: false
+#| warning: false
+
+discrete_gamma <- function(x, mean, sd) {
+  pgamma(x, shape = mean^2 / sd^2, rate = mean / sd^2) -
+    pgamma(x - 1, shape = mean^2 / sd^2, rate = mean / sd^2)
+}
+
+
+mean_delay <- mean(linelist$delay_death, na.rm = TRUE)
+
+sd_delay <- sd(linelist$delay_death, na.rm = TRUE)
+
+
+data.frame(x = 1:50) |>
+  mutate(y = discrete_gamma(x, mean = mean_delay, sd = sd_delay)) |>
+  ggplot() + theme_bw() +
+  geom_bar(aes(x = x, y = y), stat = "identity") +
+  xlab("Time (days)") + ylab("Probability of death")
+
+```
+
+We can now feed this delay distribution and our daily incidence data into the `cfr_static()` function, which would give us the following result:
+
+```{r}
+#| message: false
+#| warning: false
+
+# load cfr package
+pacman::p_load(cfr)
+
+# reformat data for cfr package
+inc_df <- ts_data %>% 
+  select(date = day,
+         cases = hospitalisations,
+         deaths) %>% 
+  mutate(date = as.Date("2024-12-31") + date)
+
+# estimate CFR accounting for delays
+cfr_static(data = inc_df,
+           delay_density = function(x) 
+             discrete_gamma(x, mean = mean_delay, sd = sd_delay)) %>% 
+  cbind(true_hfr)
+
+```
+
+In this example, the `cfr_static` function is estimating an HFR of 33.3% (95%CI 32.7-33.9), compared to our *true* estimate of 33.3% based on total cumulative hospitalisations and deaths at the end of the outbreak. So, not bad at all! Admittedly, the estimates are not different because we have information past the peak of the outbreak wave and there are very few open hospitalised cases left.
+
+Let's see, however, what would happen if we compute this estimate **throughout** the course of the outbreak with data available up to a present time, compared to our simple method based on cumulative counts:
+
+```{r}
+#| message: false
+#| warning: false
+
+day_start <- 20
+# estimate CFR using cfr_static() from day 10 onward
+df_cfr <- mapply(function(i) {
+  cfr_static(data = inc_df[1:i,],
+             delay_density = function(x) discrete_gamma(x, 
+                                                        mean = mean_delay, 
+                                                        sd = sd_delay)) %>% 
+    suppressWarnings() %>% 
+    suppressMessages()}, 
+  day_start:nrow(inc_df), SIMPLIFY = FALSE) %>% 
+  bind_rows() %>% 
+  mutate(date = inc_df$date[day_start:nrow(inc_df)], .before = 1)
+
+# crude estimate
+hfr_df <- inc_df %>% 
+  mutate(hfr_naive = cumsum(deaths) / cumsum(cases)) %>% 
+  select(date, hfr_naive)
+
+df_cfr %>% 
+  left_join(hfr_df) %>% 
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = hfr_naive, col = "Crude estimate")) +
+  geom_line(aes(y = severity_estimate, col = "cfr_static()")) +
+  geom_hline(yintercept = true_hfr, col = "red", linetype = 2) +
+  geom_ribbon(aes(ymin = severity_low, ymax = severity_high), 
+              fill = "green4", alpha = 0.2) +
+  scale_color_manual(labels = c("cfr_static()", "Crude estimate"),
+                     values = c("green4", "blue4")) +
+  # scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+  labs(x = "Date", y = "HFR") +
+  theme_minimal() +
+  theme(axis.line = element_line(),
+        legend.title = element_blank(),
+        legend.position = c(0.85, 0.85))
+```
+
+We can see that `cfr_static()` begins producing reliable estimates at a much earlier point in the epidemic due to accounting for open cases.
+
+This analysis assumes we know the correct delay distribution, i.e. the value of 16 days is exactly correct for this dataset (we know this because the data were simulated). **In reality we will not know this distribution perfectly**, and will have to estimate it from data. In general, we are better off accounting for delays even if this distribution is imperfect rather than ignoring delays completely.
+
+
+## Estimating delays and CFR together
+
+Rather than assuming a known delay distribution, we can **estimate this distribution directly from the data**. If the time series of deaths looks like a lagged version of the time series of cases, then this lag can tell us the average time from case to death. Similarly, if the time series of deaths looks like a more spread out version of the time series of cases, then this tells us something about the variation in time from case to death. We can combine these ideas into a mathematical model. As above, we assume a simple parametric form for the delay distribution, defined in terms of a mean and standard deviation.
+
+Although there are no out-of-the-box solutions for fitting this model, there are many tools that we could use to perform model fitting. In this example, we will use [drjacoby](https://mrc-ide.github.io/drjacoby/), which performs **Bayesian inference via Markov chain Mote Carlo (MCMC)**. The Bayesian approach requires us to define priors on the unknown parameters, which are distributions that capture what we believe about the parameters *before* we have seen any data. Alongside incorporating prior knowledge, the Bayesian framework allows us to:
+
+-   **Estimate the CFR**, along with the delay distribution's **mean** and **standard deviation**
+-   **Quantify uncertainty** around all parameter estimates
+
+For this example, we will use the following weakly informative priors:
+
+-   **CFR**: Uniform prior that is equally likely to take any value between 0 and 1
+-   **Mean delay**: could take any positive value but is most likely to be between 0 and 90 days
+-   **Standard deviation of the delay**: can take any positive value but is most likely to be between 0 and 30 days.
+
+
+
+```{r}
+
+# function for convolving a vector of cases with a delay distribution
+case_convolve <- function(x, delay) {
+  ret <- rev(convolve(x = rev(x), y = delay, type = "open"))[1:length(x)]
+  ret[ret < 0] <- 0
+  return(ret)
+}
+
+# Note, this code uses the following specific version of drjacoby
+#devtools::install_github("mrc-ide/drjacoby@v1.5.4", force = TRUE)
+library(drjacoby)
+
+# define parameters data.frame
+df_params <- define_params(name = "HFR", min = 0, max = 1,
+                           name = "delay_death_mean", min = 0, max = Inf,
+                           name = "delay_death_sd", min = 0, max = Inf)
+
+# define log-likelihood function
+loglike <- function(params, data, misc) {
+  
+  # extract parameter values
+  HFR <- params["HFR"]
+  delay_death_mean <- params["delay_death_mean"]
+  delay_death_sd <- params["delay_death_sd"]
+  
+  # get incidence of death by convolution
+  n <- nrow(data)
+  inc_death <- 
+    HFR * case_convolve(x = data$cases,
+                        delay = discrete_gamma(0:100, 
+                                               mean = delay_death_mean, 
+                                               sd = delay_death_sd))
+  
+  # calculate likelihood
+  ret <- sum(dpois(data$deaths, lambda = inc_death[1:n], log = TRUE))
+  
+  # return
+  return(ret)
+}
+
+# define log-prior function
+logprior <- function(params, misc) {
+  
+  # extract parameter values
+  HFR <- params["HFR"]
+  delay_death_mean <- params["delay_death_mean"]
+  delay_death_sd <- params["delay_death_sd"]
+  
+  # calculate log-prior
+  ret <- dunif(HFR, min = 0, max = 1, log = TRUE) +
+    dexp(delay_death_mean, rate = 1 / 30, log = TRUE) +
+    dexp(delay_death_sd, rate = 1 / 10, log = TRUE)
+  
+  # return
+  return(ret)
+}
+
+# run MCMC
+set.seed(1)
+mcmc <- run_mcmc(data = inc_df,
+                 df_params = df_params,
+                 loglike = loglike,
+                 logprior = logprior,
+                 burnin = 1e2,
+                 samples = 1e3,
+                 chains = 5,
+                 silent = TRUE)
+
+#mcmc$diagnostics
+#plot_trace(mcmc, phase = "both")
+
+# get 95% CrIs
+mcmc_draws <- mcmc$output |>
+  filter(phase == "sampling") |>
+  select(-chain, -phase, -iteration, -logprior, -loglikelihood)
+
+mcmc_CrI <- apply(mcmc_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))) |>
+  t() |>
+  as.data.frame() |>
+  rename(lower_CrI = '2.5%',
+         upper_CrI = '97.5%',
+         median = '50%')
+```
+
+
+There are many steps involved in running an MCMC and checking that results are reliable. We will not dwell on these steps here, but instead will focus on the results:
+
+```{r, echo = FALSE}
+# show table of data
+mcmc_CrI |>
+  round(digits = 3) |>
+  kbl() |>
+  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "center")
+```
+
+
+We obtain 95% credible intervals on the CFR, and also on the mean and standard deviation of the delay distribution. Unlike the previous analysis, any uncertainty in the parameters of the delay distribution are taken into account in our estimate of the CFR. Results are similar to the previous analysis, but we have had to make fewer assumptions.
+
+### Summary
+
+-   The `cfr` package accounts for delays between cases and deaths to provide more accurate CFR estimates by adjusting for open cases.
+-   Bayesian models, such as MCMC, offer a flexible framework for jointly estimating the CFR and the delay distribution, incorporating uncertainty in both.
