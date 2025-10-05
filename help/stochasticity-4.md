@@ -1,4 +1,4 @@
-## Example 4: Stochastic SIR model
+## Example 3: Stochastic SIR model
 
 This model investigates the behaviour of a Susceptible-Infected-Recovered (SIR) model. The code to do this in `odin` can be easily adapted from the SIS code.
 

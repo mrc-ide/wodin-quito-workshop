@@ -1,4 +1,4 @@
-## Example 3: Stochastic SIS model
+## Example 2: Stochastic SIS model
 
 In the next example we consider a model of infection transmission within a closed popluation (no births or deaths): the susceptible-infected-susceptible (SIS) model.
 
