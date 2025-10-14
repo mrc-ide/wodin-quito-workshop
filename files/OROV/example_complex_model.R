@@ -1,40 +1,34 @@
-library(odin)
-
-################################ 
-## Example complex OROV model ##
-################################
-
 # human equations 
 
 deriv(S_h) <- (- S_h * lambda_h) 
 
 deriv(E_h) <- (S_h * lambda_h) -
-              gamma * E_h
-  
+  gamma * E_h
+
 deriv(I_h_asym) <- (1-theta) * (gamma * E_h) - 
-                (psi * sigma * I_h_asym) 
+  (psi * sigma * I_h_asym) 
 
 deriv(I_h_sym0) <- theta * (1-pi) * (gamma * E_h) - 
-                (sigma * I_h_sym0) 
+  (sigma * I_h_sym0) 
 
 deriv(I_h_sym1) <- theta * pi * (gamma * E_h) - 
-                (omega * I_h_sym1) 
+  (omega * I_h_sym1) 
 
 deriv(R_h_temp) <- (omega * I_h_sym1) - 
-                   (kappa * R_h_temp)
-  
+  (kappa * R_h_temp)
+
 deriv(I_h_sym2) <-  (kappa * R_h_temp) - 
-                  (epsilon * sigma * I_h_sym2) 
-  
+  (epsilon * sigma * I_h_sym2) 
+
 deriv(R_h) <- (psi * sigma * I_h_asym) +
-              (sigma * I_h_sym0) +
-              (epsilon * sigma * I_h_sym2) 
+  (sigma * I_h_sym0) +
+  (epsilon * sigma * I_h_sym2) 
 
 I_h_total <- I_h_asym + I_h_sym0 + I_h_sym1 + I_h_sym2
 I_h_sym_total <- I_h_total - I_h_asym
 N_h_total <- S_h + E_h + I_h_total + R_h_temp + R_h
-N_v_total <- S_v + E_v + I_v
-  
+#N_v_total <- S_v + E_v + I_v
+
 # vector equations 
 
 deriv(S_v) <- e - lambda_v * S_v - mu * S_v 
@@ -85,7 +79,7 @@ initial(I_v) <- I_init_v
 # parameter values
 I_init_h <- 0 # proportion of infectious humans at start of epidemic 
 
-I_init_v <- 0.001 # proportion of infectious vectors at start of epidemic 
+I_init_v <- 0.0001 # proportion of infectious vectors at start of epidemic 
 
 
 gamma <- user(0.167) # gamma is 1/incubation period 
@@ -97,7 +91,7 @@ epsilon <- user(1, min=0.5, max=1.5) # epsilon is the modulation of the recovery
 kappa <- user(0.125, min=0.036, max=0.5) # kappa is relapse rate 8 (2-28) days
 omega <- user(0.2, min= 0.09, max=0.5) # omega is rate to temporary recovery 5 (1-11) days
 
-mu <- user(0.03, min=0.01, max = 0.07) # vector death rate 
+mu <- user(0.01) # vector death rate 
 e <- mu # vector emergence rate 
 n = 12 # extrinsic incubation period 
 alpha <- exp(-mu*n)	# probability a vector survives the latent period 
