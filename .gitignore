@@ -1,4 +1,9 @@
 wodin-quito-workshop.Rproj
 .DS_Store
+<<<<<<< HEAD
 
 .Rproj.user
+=======
+*.Rhistory
+*.Rproj.user
+>>>>>>> 4be8de9865291a663229bd6d3751f5d53677c23d
