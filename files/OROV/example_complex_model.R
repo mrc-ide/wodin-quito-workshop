@@ -97,7 +97,7 @@ epsilon <- user(1, min=0.5, max=1.5) # epsilon is the modulation of the recovery
 kappa <- user(0.125, min=0.036, max=0.5) # kappa is relapse rate 8 (2-28) days
 omega <- user(0.2, min= 0.09, max=0.5) # omega is rate to temporary recovery 5 (1-11) days
 
-mu <- user(0.03, min=0.01, 0.07) # vector death rate 
+mu <- user(0.03, min=0.01, max = 0.07) # vector death rate 
 e <- mu # vector emergence rate 
 n = 12 # extrinsic incubation period 
 alpha <- exp(-mu*n)	# probability a vector survives the latent period 
